@@ -136,6 +136,12 @@ func (c *GB28181Config) OnEvent(event any) {
 		if v, ok := PullStreams.LoadAndDelete(e.Target.Path); ok {
 			go v.(*PullStream).Bye()
 		}
+	case UnsubscribeEvent:
+		if c.InviteMode == INVIDE_MODE_ONSUBSCRIBE && e.Target.GetSubscriber().Stream.Subscribers.Len() == 0 {
+			if v, ok := PullStreams.Load(e.Target.GetSubscriber().Stream.Path); ok {
+				go v.(*PullStream).Bye()
+			}
+		}
 	}
 }
 
