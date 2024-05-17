@@ -11,6 +11,7 @@ import (
 	myip "github.com/husanpao/ip"
 	"go.uber.org/zap"
 	. "m7s.live/engine/v4"
+	"m7s.live/engine/v4/config"
 	"m7s.live/engine/v4/util"
 )
 
@@ -56,6 +57,7 @@ type GB28181Config struct {
 
 	Position GB28181PositionConfig //关于定位的配置参数
 
+	pullConfig config.Pull
 }
 
 var SipUri *sip.SipUri
@@ -105,6 +107,8 @@ func (c *GB28181Config) OnEvent(event any) {
 			FHost: c.SipIP,
 			FPort: &conf.SipPort,
 		}
+		c.pullConfig.PullOnSubLocker = sync.RWMutex{}
+		c.pullConfig.PullOnStartLocker = sync.RWMutex{}
 		go c.initRoutes()
 		c.startServer()
 	case InvitePublish:
@@ -170,6 +174,23 @@ func (c *GB28181Config) OnEvent(event any) {
 
 func (c *GB28181Config) IsMediaNetworkTCP() bool {
 	return strings.ToLower(c.MediaNetwork) == "tcp"
+}
+
+func (c *GB28181Config) GetPullConfig() *config.Pull {
+	pullConfig := &c.pullConfig
+	if c.InviteMode == INVIDE_MODE_ONSUBSCRIBE {
+		pullOnSub := make(map[string]string)
+		Devices.Range(func(id, device interface{}) bool {
+			device.(*Device).channelMap.Range(func(channelId, value interface{}) bool {
+				streamPath := id.(string) + "/" + channelId.(string)
+				pullOnSub[streamPath] = streamPath
+				return true
+			})
+			return true
+		})
+		pullConfig.PullOnSub = pullOnSub
+	}
+	return pullConfig
 }
 
 var conf GB28181Config
