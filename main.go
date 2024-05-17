@@ -2,6 +2,7 @@ package gb28181
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -142,6 +143,28 @@ func (c *GB28181Config) OnEvent(event any) {
 				go v.(*PullStream).Bye()
 			}
 		}
+	case SEwaitPublish:
+		if e.Action == ACTION_TIMEOUT && c.InviteMode == INVIDE_MODE_ONSUBSCRIBE && e.Target.Subscribers.Len() > 0 {
+			//流可能是回放流，stream path是device/channel/start-end形式
+			streamNames := strings.Split(e.Target.Path, "/")
+			if channel := FindChannel(streamNames[0], streamNames[1]); channel != nil {
+				opt := InviteOptions{}
+				if len(streamNames) > 2 {
+					last := len(streamNames) - 1
+					timestr := streamNames[last]
+					trange := strings.Split(timestr, "-")
+					if len(trange) == 2 {
+						startTime := trange[0]
+						endTime := trange[1]
+						opt.Validate(startTime, endTime)
+					}
+				}
+				channel.TryAutoInvite(&opt)
+				GB28181Plugin.Info("OnEvent SEwaitPublish", zap.String("action", "reinvite"))
+			}
+		}
+	default:
+		GB28181Plugin.Info("OnEvent", zap.Any("event type", reflect.TypeOf(event)))
 	}
 }
 
